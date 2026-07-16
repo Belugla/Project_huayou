@@ -599,15 +599,28 @@
 
                     <!-- 3.1 安全投入使用汇总表 -->
                     <div v-if="activeSubTab === 'summary'" class="space-y-4">
-                        <div class="bg-white p-5 rounded border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
-                            <div class="flex items-center gap-4">
-                                <span class="text-xs text-slate-500 font-semibold">项目过滤：</span>
-                                <input v-model="summaryFilters.projectName" type="text" placeholder="输入汇总项目名称" class="text-xs border border-slate-200 rounded px-3 py-2 focus:outline-none focus:border-brand-500 w-64">
+                        <!-- 筛选 + 操作栏 -->
+                        <div class="bg-white p-4 rounded border border-slate-200 shadow-sm flex flex-wrap items-end justify-between gap-4">
+                            <div class="flex flex-wrap items-end gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-[11px] text-slate-500 font-semibold">统计年度</span>
+                                    <select v-model="summaryFilters.year" class="text-xs border border-slate-200 rounded px-3 py-2 focus:outline-none focus:border-brand-500 bg-white">
+                                        <option value="2026">2026 年</option>
+                                        <option value="2025">2025 年</option>
+                                        <option value="2027">2027 年</option>
+                                    </select>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-[11px] text-slate-500 font-semibold">项目名称</span>
+                                    <input v-model="summaryFilters.projectName" type="text" placeholder="输入汇总项目名称" class="text-xs border border-slate-200 rounded px-3 py-2 focus:outline-none focus:border-brand-500 w-56">
+                                </div>
+                                <button @click="searchSafetySummary" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs rounded font-semibold transition shadow-sm">查询</button>
+                                <button @click="summaryFilters.projectName = ''" class="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs rounded font-semibold transition">重置</button>
                             </div>
-                            <div class="text-xs text-brand-600 bg-brand-50 border border-brand-200 rounded px-3 py-1.5 flex items-center gap-1.5 font-medium shadow-sm">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 111.063.852l-.708 2.836a.75.75 0 001.063.852l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                月度数据已由支出明细自动归集，汇总表不支持手动添加
-                            </div>
+                            <button @click="exportSafetySummary" class="px-4 py-2 border border-brand-300 text-brand-600 bg-brand-50 hover:bg-brand-500 hover:text-white text-xs rounded font-semibold transition flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                                导出
+                            </button>
                         </div>
 
                         <div class="bg-white rounded border border-slate-200 overflow-hidden shadow-sm">
@@ -618,36 +631,49 @@
                                             <th class="py-3 px-3 w-16 border-r border-slate-200">序号</th>
                                             <th class="py-3 px-4 text-left border-r border-slate-200 min-w-[180px]">安全投入项目名称</th>
                                             <th v-for="m in 12" :key="m" class="py-3 px-1 border-r border-slate-100 font-mono w-14 text-center">{{ m }}月</th>
-                                            <th class="py-3 px-3 border-r border-slate-200 text-center w-28">审核状态</th>
-                                            <th class="py-3 px-4 text-center w-28">操作</th>
+                                            <th class="py-3 px-3 border-r border-slate-200 text-center w-36 bg-amber-50 text-amber-700">每项累计支出（万元）</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-100">
                                         <tr v-if="computedSafetySummaries.length > 0" v-for="(row, idx) in computedSafetySummaries" :key="row.id" class="hover:bg-slate-50 transition">
                                             <td class="py-3.5 px-3 text-center border-r border-slate-200 text-slate-400 font-medium">{{ idx + 1 }}</td>
                                             <td class="py-3.5 px-4 font-semibold text-slate-800 border-r border-slate-200 max-w-[200px] truncate" :title="row.projectName">{{ row.projectName }}</td>
-                                            <!-- 1-12月资金自动分摊展示 -->
+                                            <!-- 1-12月资金自动分摊展示（单位：万元） -->
                                             <td v-for="m in 12" :key="m" class="py-3.5 px-1 text-center border-r border-slate-100 font-mono text-slate-600 text-[11px]">
                                                 <span v-if="row.months[m] > 0" class="font-bold text-brand-600">{{ formatNumber(row.months[m]) }}</span>
                                                 <span v-else class="text-slate-300">--</span>
                                             </td>
-                                            <!-- 独立的审核状态列 -->
+                                            <!-- 每项累计支出 -->
+                                            <td class="py-3.5 px-3 text-center border-r border-slate-200 bg-amber-50 font-bold text-amber-700">
+                                                <span v-if="row.total > 0">{{ formatNumber(row.total) }}</span>
+                                                <span v-else class="text-slate-300">--</span>
+                                            </td>
+                                        </tr>
+                                        <tr v-if="computedSafetySummaries.length > 0" class="bg-slate-50 font-bold text-slate-800 border-t border-slate-200">
+                                            <td class="py-3.5 px-3 text-center border-r border-slate-200 text-slate-400 font-medium">—</td>
+                                            <td class="py-3.5 px-4 border-r border-slate-200">合计</td>
+                                            <td v-for="m in 12" :key="m" class="py-3.5 px-1 text-center border-r border-slate-100 font-mono text-brand-700 text-[11px]">
+                                                {{ formatNumber(computedSafetySummaries.reduce((acc, r) => acc + (r.months[m] || 0), 0)) }}
+                                            </td>
+                                            <td class="py-3.5 px-3 text-center border-r border-slate-200 bg-amber-100 font-bold text-amber-700">
+                                                {{ formatNumber(computedSafetySummaries.reduce((acc, r) => acc + (r.total || 0), 0)) }}
+                                            </td>
                                             <td class="py-3.5 px-3 text-center border-r border-slate-200">
-                                                <span :class="getApprovalBadgeClass(row.status)" class="px-2 py-0.5 rounded text-[10px] font-semibold">
-                                                    {{ getApprovalStatusText(row.status) }}
+                                                <span :class="getApprovalBadgeClass(getAnnualStatus('safety').status)" class="px-2 py-0.5 rounded text-[10px] font-semibold">
+                                                    {{ getApprovalStatusText(getAnnualStatus('safety').status) }}
                                                 </span>
                                             </td>
-                                            <!-- 操作 -->
                                             <td class="py-3.5 px-4 text-center">
                                                 <div class="flex items-center justify-center gap-2.5">
-                                                    <button v-if="row.status === 'draft' || row.status === 'rejected'" @click="submitSummaryForApproval('safety', row)" class="px-3 py-1 border border-brand-500 text-brand-600 bg-brand-50 hover:bg-brand-500 hover:text-white text-[11px] rounded transition font-semibold">上报审批</button>
-                                                    <button v-else-if="row.status !== 'archived'" @click="openApprovalModal('safetySummary', row)" class="px-3 py-1 border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 text-[11px] rounded transition font-semibold">流程审批</button>
+                                                    <button v-if="getAnnualStatus('safety').status === 'draft' || getAnnualStatus('safety').status === 'rejected'" @click="submitSummaryForApproval('safety')" class="px-3 py-1 border border-brand-500 text-brand-600 bg-brand-50 hover:bg-brand-500 hover:text-white text-[11px] rounded transition font-semibold">上报审核</button>
+                                                    <button v-else-if="['level1','level2','level3','reviewing'].includes(getAnnualStatus('safety').status)" @click="openApprovalModal('safetySummary')" class="px-3 py-1 border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 text-[11px] rounded transition font-semibold">审批</button>
+                                                    <button v-else-if="getAnnualStatus('safety').status === 'level3' || getAnnualStatus('safety').status === 'approved'" @click="archiveSummaryRow('safety')" class="px-3 py-1 border border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-500 hover:text-white text-[11px] rounded transition font-semibold">归档</button>
                                                     <span v-else class="text-slate-400 text-[11px]">—</span>
                                                 </div>
                                             </td>
                                         </tr>
                                         <tr v-if="computedSafetySummaries.length === 0">
-                                            <td colspan="16" class="text-center py-24 text-slate-400 bg-white">暂无数据</td>
+                                            <td colspan="15" class="text-center py-24 text-slate-400 bg-white">暂无数据</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -657,15 +683,28 @@
 
                     <!-- 3.2 安全投入使用隐患汇总表 -->
                     <div v-if="activeSubTab === 'danger-summary'" class="space-y-4">
-                        <div class="bg-white p-5 rounded border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
-                            <div class="flex items-center gap-4">
-                                <span class="text-xs text-slate-500 font-semibold">隐患项目过滤：</span>
-                                <input v-model="dangerSummaryFilters.projectName" type="text" placeholder="输入隐患治理项目名称" class="text-xs border border-slate-200 rounded px-3 py-2 focus:outline-none focus:border-brand-500 w-64">
+                        <!-- 筛选 + 操作栏 -->
+                        <div class="bg-white p-4 rounded border border-slate-200 shadow-sm flex flex-wrap items-end justify-between gap-4">
+                            <div class="flex flex-wrap items-end gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-[11px] text-slate-500 font-semibold">统计年度</span>
+                                    <select v-model="dangerSummaryFilters.year" class="text-xs border border-slate-200 rounded px-3 py-2 focus:outline-none focus:border-brand-500 bg-white">
+                                        <option value="2026">2026 年</option>
+                                        <option value="2025">2025 年</option>
+                                        <option value="2027">2027 年</option>
+                                    </select>
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-[11px] text-slate-500 font-semibold">隐患项目名称</span>
+                                    <input v-model="dangerSummaryFilters.projectName" type="text" placeholder="输入隐患治理项目名称" class="text-xs border border-slate-200 rounded px-3 py-2 focus:outline-none focus:border-brand-500 w-56">
+                                </div>
+                                <button @click="searchDangerSummary" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-xs rounded font-semibold transition shadow-sm">查询</button>
+                                <button @click="dangerSummaryFilters.projectName = ''" class="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs rounded font-semibold transition">重置</button>
                             </div>
-                            <div class="text-xs text-brand-600 bg-brand-50 border border-brand-200 rounded px-3 py-1.5 flex items-center gap-1.5 font-medium shadow-sm">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 111.063.852l-.708 2.836a.75.75 0 001.063.852l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                隐患数据已由支出明细自动归集，汇总表不支持手动添加
-                            </div>
+                            <button @click="exportDangerSummary" class="px-4 py-2 border border-brand-300 text-brand-600 bg-brand-50 hover:bg-brand-500 hover:text-white text-xs rounded font-semibold transition flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                                导出
+                            </button>
                         </div>
 
                         <div class="bg-white rounded border border-slate-200 overflow-hidden shadow-sm">
@@ -676,36 +715,49 @@
                                             <th class="py-3 px-3 w-16 border-r border-slate-200">序号</th>
                                             <th class="py-3 px-4 text-left border-r border-slate-200 min-w-[180px]">隐患整改/治理项目名称</th>
                                             <th v-for="m in 12" :key="m" class="py-3 px-1 border-r border-slate-100 font-mono w-14 text-center">{{ m }}月</th>
-                                            <th class="py-3 px-3 border-r border-slate-200 text-center w-28">审核状态</th>
-                                            <th class="py-3 px-4 text-center w-28">操作</th>
+                                            <th class="py-3 px-3 border-r border-slate-200 text-center w-36 bg-amber-50 text-amber-700">每项累计支出（万元）</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-100">
                                         <tr v-if="computedDangerSummaries.length > 0" v-for="(row, idx) in computedDangerSummaries" :key="row.id" class="hover:bg-slate-50 transition">
                                             <td class="py-3.5 px-3 text-center border-r border-slate-200 text-slate-400 font-medium">{{ idx + 1 }}</td>
                                             <td class="py-3.5 px-4 font-semibold text-slate-800 border-r border-slate-200 max-w-[200px] truncate" :title="row.projectName">{{ row.projectName }}</td>
-                                            <!-- 1-12月资金自动归集显示 -->
+                                            <!-- 1-12月资金自动归集显示（单位：万元） -->
                                             <td v-for="m in 12" :key="m" class="py-3.5 px-1 text-center border-r border-slate-100 font-mono text-slate-600 text-[11px]">
                                                 <span v-if="row.months[m] > 0" class="font-bold text-brand-600">{{ formatNumber(row.months[m]) }}</span>
                                                 <span v-else class="text-slate-300">--</span>
                                             </td>
-                                            <!-- 独立的审核状态列 -->
+                                            <!-- 每项累计支出 -->
+                                            <td class="py-3.5 px-3 text-center border-r border-slate-200 bg-amber-50 font-bold text-amber-700">
+                                                <span v-if="row.total > 0">{{ formatNumber(row.total) }}</span>
+                                                <span v-else class="text-slate-300">--</span>
+                                            </td>
+                                        </tr>
+                                        <tr v-if="computedDangerSummaries.length > 0" class="bg-slate-50 font-bold text-slate-800 border-t border-slate-200">
+                                            <td class="py-3.5 px-3 text-center border-r border-slate-200 text-slate-400 font-medium">—</td>
+                                            <td class="py-3.5 px-4 border-r border-slate-200">合计</td>
+                                            <td v-for="m in 12" :key="m" class="py-3.5 px-1 text-center border-r border-slate-100 font-mono text-brand-700 text-[11px]">
+                                                {{ formatNumber(computedDangerSummaries.reduce((acc, r) => acc + (r.months[m] || 0), 0)) }}
+                                            </td>
+                                            <td class="py-3.5 px-3 text-center border-r border-slate-200 bg-amber-100 font-bold text-amber-700">
+                                                {{ formatNumber(computedDangerSummaries.reduce((acc, r) => acc + (r.total || 0), 0)) }}
+                                            </td>
                                             <td class="py-3.5 px-3 text-center border-r border-slate-200">
-                                                <span :class="getApprovalBadgeClass(row.status)" class="px-2 py-0.5 rounded text-[10px] font-semibold">
-                                                    {{ getApprovalStatusText(row.status) }}
+                                                <span :class="getApprovalBadgeClass(getAnnualStatus('danger').status)" class="px-2 py-0.5 rounded text-[10px] font-semibold">
+                                                    {{ getApprovalStatusText(getAnnualStatus('danger').status) }}
                                                 </span>
                                             </td>
-                                            <!-- 操作 -->
                                             <td class="py-3.5 px-4 text-center">
                                                 <div class="flex items-center justify-center gap-2.5">
-                                                    <button v-if="row.status === 'draft' || row.status === 'rejected'" @click="submitSummaryForApproval('danger', row)" class="px-3 py-1 border border-brand-500 text-brand-600 bg-brand-50 hover:bg-brand-500 hover:text-white text-[11px] rounded transition font-semibold">上报审批</button>
-                                                    <button v-else-if="row.status !== 'archived'" @click="openApprovalModal('dangerSummary', row)" class="px-3 py-1 border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 text-[11px] rounded transition font-semibold">流程审批</button>
+                                                    <button v-if="getAnnualStatus('danger').status === 'draft' || getAnnualStatus('danger').status === 'rejected'" @click="submitSummaryForApproval('danger')" class="px-3 py-1 border border-brand-500 text-brand-600 bg-brand-50 hover:bg-brand-500 hover:text-white text-[11px] rounded transition font-semibold">上报审核</button>
+                                                    <button v-else-if="['level1','level2','level3','reviewing'].includes(getAnnualStatus('danger').status)" @click="openApprovalModal('dangerSummary')" class="px-3 py-1 border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 text-[11px] rounded transition font-semibold">审批</button>
+                                                    <button v-else-if="getAnnualStatus('danger').status === 'level3' || getAnnualStatus('danger').status === 'approved'" @click="archiveSummaryRow('danger')" class="px-3 py-1 border border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-500 hover:text-white text-[11px] rounded transition font-semibold">归档</button>
                                                     <span v-else class="text-slate-400 text-[11px]">—</span>
                                                 </div>
                                             </td>
                                         </tr>
                                         <tr v-if="computedDangerSummaries.length === 0">
-                                            <td colspan="16" class="text-center py-24 text-slate-400 bg-white">暂无数据</td>
+                                            <td colspan="15" class="text-center py-24 text-slate-400 bg-white">暂无数据</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -2662,8 +2714,25 @@
             const usageRecords = ref([]);    // 投入使用实际支出明细 (所有计算的核心来源)
 
             // 汇总表搜索过滤条件
-            const summaryFilters = reactive({ projectName: '' });
-            const dangerSummaryFilters = reactive({ projectName: '' });
+            const summaryFilters = reactive({ year: '2026', projectName: '' });
+            const dangerSummaryFilters = reactive({ year: '2026', projectName: '' });
+
+            // 年度审核状态管理（按年度统一管理审核流程，同年所有汇总项目共享状态）
+            // 键格式：'safety-2026' / 'danger-2026'
+            const annualAuditStatus = reactive({});
+
+            const getAnnualKey = (type) => {
+                const year = type === 'safety' ? summaryFilters.year : dangerSummaryFilters.year;
+                return `${type}-${year}`;
+            };
+
+            const getAnnualStatus = (type) => {
+                const key = getAnnualKey(type);
+                if (!annualAuditStatus[key]) {
+                    annualAuditStatus[key] = { status: 'draft', logs: [] };
+                }
+                return annualAuditStatus[key];
+            };
 
             // 批量导入 modal 控制
             const batchImportModalOpen = ref(false);
@@ -2731,32 +2800,64 @@
                         year: '2026',
                         projectName: '全厂消防应急及储罐安防专项投入',
                         projectCode: 'SF-2026-A',
-                        status: 'archived', // 已归档
-                        logs: [
-                            { time: '2026-05-10 10:00:00', user: '秦强 (经办人)', action: '上报审批', opinion: '安全防消汇总提取计划核准归档。' },
-                            { time: '2026-05-11 11:30:00', user: '张主管 (部门主管)', action: '审核同意', opinion: '汇总情况吻合。' },
-                            { time: '2026-05-12 14:20:00', user: '李总监 (安全总监)', action: '审批同意', opinion: '符合华油规范，呈报王总。' },
-                            { time: '2026-05-13 16:45:00', user: '王总经理 (总经理)', action: '终审通过', opinion: '准予通过并进行系统级归档保护。' }
-                        ]
+                        status: 'draft', // 未归档（待上报审核）
+                        logs: []
                     },
                     {
                         id: 302,
                         year: '2026',
                         projectName: '2026年加气站设备防爆设施与安全检验费用',
                         projectCode: 'SF-2026-B',
-                        status: 'level2', // 总监审批中
-                        logs: [
-                            { time: '2026-06-01 09:00:00', user: '张华 (经办人)', action: '上报审批', opinion: '二季度站场防爆检测费用汇总上报。' },
-                            { time: '2026-06-02 10:15:00', user: '张主管 (部门主管)', action: '审核同意', opinion: '同意。' }
-                        ]
+                        status: 'draft', // 未归档（待上报审核）
+                        logs: []
                     },
                     {
                         id: 303,
                         year: '2026',
                         projectName: '2026年度环保监测系统升级采购计划',
                         projectCode: 'SF-2026-C',
-                        status: 'draft',
+                        status: 'draft', // 未归档，待上报审核
                         logs: []
+                    },
+                    // ===== 2025 年度模拟数据（已归档） =====
+                    {
+                        id: 311,
+                        year: '2025',
+                        projectName: '全厂消防应急及储罐安防专项投入',
+                        projectCode: 'SF-2025-A',
+                        status: 'archived', // 2025年度已归档锁定
+                        logs: [
+                            { time: '2025-11-05 09:00:00', user: '秦强 (经办人)', action: '上报审批', opinion: '2025年度安全防消汇总提取计划核准归档。' },
+                            { time: '2025-11-06 10:30:00', user: '张主管 (部门主管)', action: '审核同意', opinion: '汇总情况吻合。' },
+                            { time: '2025-11-07 14:20:00', user: '李总监 (安全总监)', action: '审批同意', opinion: '符合华油规范，呈报王总。' },
+                            { time: '2025-11-08 16:45:00', user: '王总经理 (总经理)', action: '终审通过', opinion: '准予通过并进行系统级归档保护。' }
+                        ]
+                    },
+                    {
+                        id: 312,
+                        year: '2025',
+                        projectName: '2025年加气站设备防爆设施与安全检验费用',
+                        projectCode: 'SF-2025-B',
+                        status: 'archived', // 2025年度已归档锁定
+                        logs: [
+                            { time: '2025-11-10 09:00:00', user: '张华 (经办人)', action: '上报审批', opinion: '2025年度站场防爆检测费用汇总上报归档。' },
+                            { time: '2025-11-11 10:30:00', user: '张主管 (部门主管)', action: '审核同意', opinion: '同意。' },
+                            { time: '2025-11-12 14:20:00', user: '李总监 (安全总监)', action: '审批同意', opinion: '符合规范，予以批准。' },
+                            { time: '2025-11-13 16:30:00', user: '王总经理 (总经理)', action: '终审通过', opinion: '准予通过并进行系统级归档保护。' }
+                        ]
+                    },
+                    {
+                        id: 313,
+                        year: '2025',
+                        projectName: '2025年度环保监测系统升级采购计划',
+                        projectCode: 'SF-2025-C',
+                        status: 'archived', // 2025年度已归档锁定
+                        logs: [
+                            { time: '2025-11-15 09:00:00', user: '秦强 (经办人)', action: '上报审批', opinion: '2025年度环保监测系统升级采购计划汇总上报归档。' },
+                            { time: '2025-11-16 10:30:00', user: '张主管 (部门主管)', action: '审核同意', opinion: '同意。' },
+                            { time: '2025-11-17 14:20:00', user: '李总监 (安全总监)', action: '审批同意', opinion: '予以批准。' },
+                            { time: '2025-11-18 16:30:00', user: '王总经理 (总经理)', action: '终审通过', opinion: '准予通过并进行系统级归档保护。' }
+                        ]
                     }
                 ];
 
@@ -2767,7 +2868,7 @@
                         year: '2026',
                         projectName: '液化气槽车卸车台防拉断阀成套更换专项隐患治理',
                         projectCode: 'PJ-YH-2026',
-                        status: 'approved', // 已终审，待归档
+                        status: 'level3', // 总经理终审阶段（本年度仍有未审核隐患明细，终审归档时将被拦截）
                         logs: [
                             { time: '2026-05-15 08:30:00', user: '陈凯 (经办人)', action: '上报审批', opinion: '槽车拉断阀隐患治理储备支出核算。' },
                             { time: '2026-05-16 09:40:00', user: '张主管 (部门主管)', action: '审核同意', opinion: '已通过，请王总李总会签。' },
@@ -2782,6 +2883,19 @@
                         projectCode: 'DN-2026-B',
                         status: 'draft',
                         logs: []
+                    },
+                    {
+                        id: 403,
+                        year: '2026',
+                        projectName: '常压储罐区防静电与接地系统专项隐患治理',
+                        projectCode: 'DN-2026-C',
+                        status: 'archived', // 已归档，不支持任何操作
+                        logs: [
+                            { time: '2026-02-10 09:00:00', user: '陈凯 (经办人)', action: '上报审批', opinion: '储罐防静电隐患治理汇总提交归档。' },
+                            { time: '2026-02-11 10:20:00', user: '张主管 (部门主管)', action: '审核同意', opinion: '同意，请领导会签。' },
+                            { time: '2026-02-12 14:00:00', user: '李总监 (安全总监)', action: '审批同意', opinion: '符合规范，予以批准。' },
+                            { time: '2026-02-13 16:30:00', user: '王总经理 (总经理)', action: '终审通过', opinion: '准予通过并进行系统级归档保护。' }
+                        ]
                     }
                 ];
 
@@ -2799,11 +2913,62 @@
                     { id: 208, projectId: 301, projectName: '配备和更新安全防护用品', projectCode: '第五大类', voucherCode: 'PZ-20260718-05', date: '2026-07-18', purpose: '二季度高灵敏度防爆对讲机采购更新支出', amount: 180000.00, status: 'draft', logs: [] },
                     { id: 209, projectId: 401, projectName: '重大危险源检测、评估、监控，安全系统', projectCode: '第三大类', voucherCode: 'PZ-YH-20260321', date: '2026-03-21', purpose: '卸车台紧急切断装置气动先导阀耐腐蚀级升级', amount: 150000.00, status: 'draft', logs: [] },
                     // 这个也是 '安全隐患整改'！根据 Requirement 2，其数据将【同时】计入关联的 401 汇总表 和 301 汇总表中！
-                    { id: 210, projectId: 401, projectName: '安全隐患整改', projectCode: '第三大类', voucherCode: 'PZ-YH-20260528', date: '2026-05-28', purpose: '槽车尾部防雷防静电快速插扣整套更换', amount: 300000.00, status: 'draft', logs: [] }
+                    { id: 210, projectId: 401, projectName: '安全隐患整改', projectCode: '第三大类', voucherCode: 'PZ-YH-20260528', date: '2026-05-28', purpose: '槽车尾部防雷防静电快速插扣整套更换', amount: 300000.00, status: 'draft', logs: [] },
+                    // 勾选「纳入安全投入使用隐患汇总表」的隐患明细（草稿状态，年度内有未审核明细，将触发归档拦截）
+                    { id: 211, projectId: 401, projectName: '卸车区视频联动监控隐患整改', projectCode: '第三大类', voucherCode: 'PZ-YH-20260610', date: '2026-06-10', purpose: '卸车区AI视频联动监控隐患整改施工', amount: 88000.00, status: 'draft', includeDanger: true, logs: [] },
+                    // ===== 2025 年度安全投入使用明细（已归档年度，明细均已达终态 approved） =====
+                    { id: 221, projectId: 311, projectName: '完善、改造和维护安全防护设施设备', projectCode: '第一大类', voucherCode: 'PZ-20250118-01', date: '2025-01-18', purpose: '2025年初罐区高倍数泡沫发生器两套及压力探头更换', amount: 380000.00, status: 'approved', logs: [{ time: '2025-01-19 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '账单及发票审核无误' }] },
+                    { id: 222, projectId: 311, projectName: '完善、改造和维护安全防护设施设备', projectCode: '第一大类', voucherCode: 'PZ-20250422-02', date: '2025-04-22', purpose: '一期干粉灭火系统压力表组春季升级检修费用', amount: 420000.00, status: 'approved', logs: [{ time: '2025-04-23 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 223, projectId: 311, projectName: '配备和更新安全防护用品', projectCode: '第五大类', voucherCode: 'PZ-20250715-03', date: '2025-07-15', purpose: '加注补全储油舱防爆抑爆合金材料网', amount: 500000.00, status: 'approved', logs: [{ time: '2025-07-16 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 224, projectId: 311, projectName: '配备、维护、保养应急器材、设备和应急演练', projectCode: '第二大类', voucherCode: 'PZ-20251028-04', date: '2025-10-28', purpose: '四季度安防红外热感测温摄像机线路接驳配置', amount: 300000.00, status: 'approved', logs: [{ time: '2025-10-29 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 225, projectId: 312, projectName: '设施及特种设备检测检验、检定校准', projectCode: '第八大类', voucherCode: 'PZ-20250212-05', date: '2025-02-12', purpose: '聘请四川特检院进行站场防爆线路年度耐压等级检测', amount: 150000.00, status: 'approved', logs: [{ time: '2025-02-13 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 226, projectId: 312, projectName: '设施及特种设备检测检验、检定校准', projectCode: '第八大类', voucherCode: 'PZ-20250520-06', date: '2025-05-20', purpose: '加气站防爆风机及静电接地报警装置年度校准', amount: 200000.00, status: 'approved', logs: [{ time: '2025-05-21 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 227, projectId: 312, projectName: '设施及特种设备检测检验、检定校准', projectCode: '第八大类', voucherCode: 'PZ-20250818-07', date: '2025-08-18', purpose: '三季度站场可燃气体探测器检定校准费用', amount: 180000.00, status: 'approved', logs: [{ time: '2025-08-19 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 228, projectId: 312, projectName: '设施及特种设备检测检验、检定校准', projectCode: '第八大类', voucherCode: 'PZ-20251125-08', date: '2025-11-25', purpose: '冬季防爆电气设备绝缘等级复检费用', amount: 220000.00, status: 'approved', logs: [{ time: '2025-11-26 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 229, projectId: 313, projectName: '配备和更新安全防护用品', projectCode: '第五大类', voucherCode: 'PZ-20250310-09', date: '2025-03-10', purpose: '环保监测站房通风及防腐用品采购', amount: 130000.00, status: 'approved', logs: [{ time: '2025-03-11 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 230, projectId: 313, projectName: '配备和更新安全防护用品', projectCode: '第五大类', voucherCode: 'PZ-20250615-10', date: '2025-06-15', purpose: '在线监测设备备品备件及标气采购', amount: 170000.00, status: 'approved', logs: [{ time: '2025-06-16 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 231, projectId: 313, projectName: '完善、改造和维护安全防护设施设备', projectCode: '第一大类', voucherCode: 'PZ-20250922-11', date: '2025-09-22', purpose: '监测系统采样管路及预处理单元升级', amount: 210000.00, status: 'approved', logs: [{ time: '2025-09-23 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] },
+                    { id: 232, projectId: 313, projectName: '完善、改造和维护安全防护设施设备', projectCode: '第一大类', voucherCode: 'PZ-20251220-12', date: '2025-12-20', purpose: '年度环保监测数据联网运维及比对监测', amount: 160000.00, status: 'approved', logs: [{ time: '2025-12-21 09:00', user: '张主管 (部门主管)', action: '审核通过', opinion: '核验合格' }] }
                 ];
 
                 // 审批设置默认数据
                 initApprovalSettings();
+
+                // 初始化年度审核状态：从现有逐行数据聚合为年度统一状态
+                const aggregateAnnualStatus = (items, type) => {
+                    const yearGroups = {};
+                    items.forEach(item => {
+                        const y = item.year || '2026';
+                        if (!yearGroups[y]) yearGroups[y] = [];
+                        yearGroups[y].push(item);
+                    });
+                    Object.entries(yearGroups).forEach(([y, rows]) => {
+                        const key = `${type}-${y}`;
+                        // 优先取最高状态：archived > level3 > level2 > level1 > draft
+                        const hasArchived = rows.some(r => r.status === 'archived');
+                        const hasLevel3 = rows.some(r => r.status === 'level3');
+                        const hasLevel2 = rows.some(r => r.status === 'level2');
+                        const hasLevel1 = rows.some(r => r.status === 'level1');
+                        const hasRejected = rows.some(r => r.status === 'rejected');
+                        // 收集所有行的日志合并
+                        const allLogs = rows.flatMap(r => r.logs || []);
+                        if (hasArchived) {
+                            annualAuditStatus[key] = { status: 'archived', logs: allLogs };
+                        } else if (hasLevel3) {
+                            annualAuditStatus[key] = { status: 'level3', logs: allLogs };
+                        } else if (hasLevel2) {
+                            annualAuditStatus[key] = { status: 'level2', logs: allLogs };
+                        } else if (hasLevel1) {
+                            annualAuditStatus[key] = { status: 'level1', logs: allLogs };
+                        } else if (hasRejected) {
+                            annualAuditStatus[key] = { status: 'rejected', logs: allLogs };
+                        } else {
+                            annualAuditStatus[key] = { status: 'draft', logs: allLogs };
+                        }
+                    });
+                };
+                aggregateAnnualStatus(safetySummaries.value, 'safety');
+                aggregateAnnualStatus(dangerSummaries.value, 'danger');
             };
 
             // ==========================================
@@ -2845,30 +3010,95 @@
 
             // 安全投入汇总表
             const computedSafetySummaries = computed(() => {
-                return safetySummaries.value.map(item => {
-                    const months = {};
-                    for (let m = 1; m <= 12; m++) {
-                        months[m] = getMonthlySum(item.id, m, 'safety');
-                    }
-                    return { ...item, months };
-                });
+                const selectedYear = summaryFilters.year || '2026';
+                const keyword = (summaryFilters.projectName || '').trim();
+                return safetySummaries.value
+                    .filter(item => item.year === selectedYear && (!keyword || item.projectName.includes(keyword)))
+                    .map(item => {
+                        const months = {};
+                        let total = 0;
+                        for (let m = 1; m <= 12; m++) {
+                            months[m] = getMonthlySum(item.id, m, 'safety');
+                            total += months[m];
+                        }
+                        return { ...item, months, total };
+                    });
             });
 
             // 隐患投入汇总表
             const computedDangerSummaries = computed(() => {
-                return dangerSummaries.value.map(item => {
-                    const months = {};
-                    for (let m = 1; m <= 12; m++) {
-                        months[m] = getMonthlySum(item.id, m, 'danger');
-                    }
-                    return { ...item, months };
-                });
+                const selectedYear = dangerSummaryFilters.year || '2026';
+                const keyword = (dangerSummaryFilters.projectName || '').trim();
+                return dangerSummaries.value
+                    .filter(item => item.year === selectedYear && (!keyword || item.projectName.includes(keyword)))
+                    .map(item => {
+                        const months = {};
+                        let total = 0;
+                        for (let m = 1; m <= 12; m++) {
+                            months[m] = getMonthlySum(item.id, m, 'danger');
+                            total += months[m];
+                        }
+                        return { ...item, months, total };
+                    });
             });
+
+            const searchSafetySummary = () => {
+                showToast('安全投入汇总表已按筛选条件刷新', 'success');
+            };
+
+            const searchDangerSummary = () => {
+                showToast('安全投入使用隐患汇总表已按筛选条件刷新', 'success');
+            };
+
+            const exportSafetySummary = () => {
+                const rows = computedSafetySummaries.value;
+                const annualStatusText = getApprovalStatusText(getAnnualStatus('safety').status);
+                const header = ['序号', '安全投入项目名称', ...Array.from({ length: 12 }, (_, i) => `${i + 1}月`), '每项累计支出（万元）', '审核状态'];
+                const lines = rows.map((row, idx) => [
+                    idx + 1,
+                    row.projectName,
+                    ...Array.from({ length: 12 }, (_, i) => row.months[i + 1] || 0),
+                    row.total,
+                    annualStatusText
+                ]);
+                const csv = [header, ...lines].map(r => r.join(',')).join('\n');
+                const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `安全投入汇总表_${summaryFilters.year}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+                showToast('安全投入汇总表已导出 CSV', 'success');
+            };
+
+            const exportDangerSummary = () => {
+                const rows = computedDangerSummaries.value;
+                const annualStatusText = getApprovalStatusText(getAnnualStatus('danger').status);
+                const header = ['序号', '隐患整改/治理项目名称', ...Array.from({ length: 12 }, (_, i) => `${i + 1}月`), '每项累计支出（万元）', '审核状态'];
+                const lines = rows.map((row, idx) => [
+                    idx + 1,
+                    row.projectName,
+                    ...Array.from({ length: 12 }, (_, i) => row.months[i + 1] || 0),
+                    row.total,
+                    annualStatusText
+                ]);
+                const csv = [header, ...lines].map(r => r.join(',')).join('\n');
+                const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `安全投入使用隐患汇总表_${dangerSummaryFilters.year}.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+                showToast('安全投入使用隐患汇总表已导出 CSV', 'success');
+            };
 
             // 判断某年度的安全投入汇总表是否已归档锁定（该年度不再开放新增投入明细）
             const isSafetySummaryArchivedForYear = (year) => {
                 if (!year) return false;
-                return safetySummaries.value.some(s => s.year === year && s.status === 'archived');
+                const key = `safety-${year}`;
+                return annualAuditStatus[key] && annualAuditStatus[key].status === 'archived';
             };
 
             // ==========================================
@@ -2884,17 +3114,56 @@
             });
 
             const openApprovalModal = (type, item) => {
+                // 明细表审批（type === 'record'）：保持原有逐条审批逻辑
+                if (type === 'record') {
+                    if (item && item.status === 'archived') {
+                        showToast('该记录已归档，不支持任何操作。', 'warning');
+                        return;
+                    }
+                    approvalModal.type = type;
+                    approvalModal.target = item;
+                    approvalModal.action = 'approve';
+                    approvalModal.opinion = '经全面核查，账面凭证及事由合理，予以会签通过。';
+                    if (item.status === 'level1') {
+                        approvalModal.currentRole = 'dept_manager';
+                    } else if (item.status === 'level2') {
+                        approvalModal.currentRole = 'safety_director';
+                    } else if (item.status === 'level3') {
+                        approvalModal.currentRole = 'general_manager';
+                    } else {
+                        approvalModal.currentRole = 'dept_manager';
+                    }
+                    approvalModal.show = true;
+                    return;
+                }
+                // 汇总表审批（type === 'safetySummary' / 'dangerSummary'）：按年度统一管理
+                const actualType = type === 'dangerSummary' ? 'danger' : 'safety';
+                const annualStatus = getAnnualStatus(actualType);
+                // 已归档数据不支持任何审批操作
+                if (annualStatus.status === 'archived') {
+                    showToast('该年度汇总表已归档，不支持任何操作。', 'warning');
+                    return;
+                }
+                // 创建合成 target 对象，兼容审批模态框的接口（.status / .logs / .projectName / .year）
+                const year = actualType === 'safety' ? summaryFilters.year : dangerSummaryFilters.year;
+                const tableName = actualType === 'safety' ? '安全投入汇总表' : '安全投入使用隐患汇总表';
+                const syntheticTarget = {
+                    status: annualStatus.status,
+                    logs: annualStatus.logs,
+                    projectName: `${year}年度${tableName}`,
+                    year: year
+                };
                 approvalModal.type = type;
-                approvalModal.target = item;
+                approvalModal.target = syntheticTarget;
                 approvalModal.action = 'approve';
                 approvalModal.opinion = '经全面核查，账面凭证及事由合理，予以会签通过。';
                 
                 // 自动预切至当前审核节点对应的负责人
-                if (item.status === 'level1') {
+                if (syntheticTarget.status === 'level1') {
                     approvalModal.currentRole = 'dept_manager';
-                } else if (item.status === 'level2') {
+                } else if (syntheticTarget.status === 'level2') {
                     approvalModal.currentRole = 'safety_director';
-                } else if (item.status === 'level3') {
+                } else if (syntheticTarget.status === 'level3') {
                     approvalModal.currentRole = 'general_manager';
                 } else {
                     approvalModal.currentRole = 'dept_manager';
@@ -2924,12 +3193,34 @@
                 return matched ? matched.name : '未知岗位';
             };
 
-            // 汇总表上报审批流
-            const submitSummaryForApproval = (type, row) => {
-                triggerConfirm(`确认将汇总项目《${row.projectName}》提交四级审核会签流吗？上报后计划数据将被锁定。`, () => {
-                    row.status = 'level1';
-                    if (!row.logs) row.logs = [];
-                    row.logs.push({
+            // 汇总表上报审批流（按年度统一管理）
+            const submitSummaryForApproval = (type) => {
+                const annualStatus = getAnnualStatus(type);
+                // 已归档数据不支持任何审批操作
+                if (annualStatus.status === 'archived') {
+                    showToast('该年度汇总表已归档，不支持任何操作。', 'warning');
+                    return;
+                }
+                // 上报前校验：本年度是否存在草稿/审核中/已驳回的安全投入使用明细，存在则禁止上报
+                const year = type === 'safety' ? summaryFilters.year : dangerSummaryFilters.year;
+                const pendingStatuses = ['draft', 'level1', 'level2', 'level3', 'rejected'];
+                const hasPending = usageRecords.value.some(r => {
+                    if (type === 'safety' && r.includeDanger) return false;   // 安全汇总表仅校验安全明细
+                    if (type === 'danger' && !r.includeDanger) return false;  // 隐患汇总表仅校验隐患明细
+                    const d = new Date(r.date);
+                    if (isNaN(d.getTime())) return false;
+                    if (String(d.getFullYear()) !== String(year)) return false;
+                    return pendingStatuses.includes(r.status);
+                });
+                if (hasPending) {
+                    showToast('存在未提交或未审核的安全投入使用明细，请确认后再进行归档。', 'warning');
+                    return;
+                }
+                const tableName = type === 'safety' ? '安全投入汇总表' : '安全投入使用隐患汇总表';
+                triggerConfirm(`确认将${year}年度${tableName}提交四级审核会签流吗？上报后计划数据将被锁定。`, () => {
+                    annualStatus.status = 'level1';
+                    if (!annualStatus.logs) annualStatus.logs = [];
+                    annualStatus.logs.push({
                         time: new Date().toLocaleString(),
                         user: '秦强 (经办人)',
                         action: '提交上报',
@@ -2968,22 +3259,53 @@
 
                 if (!target.logs) target.logs = [];
 
+                // 确定实际类型，用于同步年度状态
+                const actualType = approvalModal.type === 'dangerSummary' ? 'danger' : 'safety';
+                const annualStatus = getAnnualStatus(actualType);
+
                 if (isApproved) {
                     if (target.status === 'level1') {
                         target.status = 'level2';
+                        annualStatus.status = 'level2';
                         target.logs.push({ time: currentTimeStr, user: operatorName, action: '主管审核通过', opinion: approvalModal.opinion });
                         showToast(`部门主管已核签，流程已自动递送至安全总监会签。`);
                     } else if (target.status === 'level2') {
                         target.status = 'level3';
+                        annualStatus.status = 'level3';
                         target.logs.push({ time: currentTimeStr, user: operatorName, action: '总监会签通过', opinion: approvalModal.opinion });
                         showToast(`安全总监已核签会签同意，流程已呈报总经理终审。`);
                     } else if (target.status === 'level3') {
-                        target.status = 'approved';
-                        target.logs.push({ time: currentTimeStr, user: operatorName, action: '总经理终审通过', opinion: approvalModal.opinion });
-                        showToast(`总经理终审通过！审批会签核准完成！`);
+                        if (approvalModal.type === 'record') {
+                            target.status = 'approved';
+                            target.logs.push({ time: currentTimeStr, user: operatorName, action: '总经理终审通过', opinion: approvalModal.opinion });
+                            showToast(`总经理终审通过！审批会签核准完成！`);
+                        } else {
+                            // 汇总表四级会签终审通过后直接归档（归档前校验本年度是否存在未提交/未审核的使用明细）
+                            const sumType = approvalModal.type === 'dangerSummary' ? 'danger' : 'safety';
+                            const guardYear = target.year;
+                            const pendingStatuses = ['draft', 'level1', 'level2', 'level3', 'rejected'];
+                            const hasPending = usageRecords.value.some(r => {
+                                if (sumType === 'safety' && r.includeDanger) return false;
+                                if (sumType === 'danger' && !r.includeDanger) return false;
+                                const d = new Date(r.date);
+                                if (isNaN(d.getTime())) return false;
+                                if (String(d.getFullYear()) !== String(guardYear)) return false;
+                                return pendingStatuses.includes(r.status);
+                            });
+                            if (hasPending) {
+                                showToast('存在未提交或未审核的安全投入使用明细，请确认后再进行归档。', 'warning');
+                                approvalModal.show = false;
+                                return;
+                            }
+                            target.status = 'archived';
+                            annualStatus.status = 'archived';
+                            target.logs.push({ time: currentTimeStr, user: operatorName, action: '总经理终审通过并归档', opinion: approvalModal.opinion });
+                            showToast(`总经理终审通过，汇总表已系统级归档锁定！`);
+                        }
                     }
                 } else {
                     target.status = 'rejected';
+                    annualStatus.status = 'rejected';
                     target.logs.push({ time: currentTimeStr, user: operatorName, action: '会签驳回', opinion: approvalModal.opinion });
                     showToast('审批单据已被驳回并退回起草修改阶段。', 'error');
                 }
@@ -2996,9 +3318,9 @@
             };
 
             // 审核状态枚举（按业务场景拆分两套；底层 workflow code 仍共用 draft/level1/level2/level3/approved/rejected/archived）
-            // 汇总表 / 隐患汇总表：未归档 / 审核中 / 已驳回 / 已归档
+            // 汇总表 / 隐患汇总表：待归档 / 审核中 / 已驳回 / 已归档
             const summaryStatusEnum = [
-                { value: 'draft',     label: '未归档' },
+                { value: 'draft',     label: '待归档' },
                 { value: 'reviewing', label: '审核中' },
                 { value: 'rejected',  label: '已驳回' },
                 { value: 'archived',  label: '已归档' }
@@ -3011,31 +3333,30 @@
                 { value: 'approved',  label: '已通过' }
             ];
 
-            // 汇总表 / 隐患汇总表 使用（审批通过 approved 与 已归档 archived 均显示为「已归档」）
+            // 汇总表 / 隐患汇总表 使用（仅 4 种状态标签：待归档 / 审核中 / 已驳回 / 已归档）
+            // draft → 待归档；level* / reviewing → 审核中；rejected → 已驳回；archived → 已归档
             const getApprovalStatusText = (status) => {
                 switch(status) {
-                    case 'draft': return '未归档';
+                    case 'draft': return '待归档';
                     case 'rejected': return '已驳回';
-                    case 'approved':
                     case 'archived': return '已归档';
                     case 'level1':
                     case 'level2':
                     case 'level3':
                     case 'reviewing': return '审核中';
-                    default: return '未归档';
+                    default: return '待归档';
                 }
             };
             const getApprovalBadgeClass = (status) => {
                 switch(status) {
                     case 'draft': return 'bg-slate-100 text-slate-600 border border-slate-200';
                     case 'rejected': return 'bg-red-50 text-red-600 border border-red-200';
-                    case 'approved':
                     case 'archived': return 'bg-slate-700 text-white';
                     case 'level1':
                     case 'level2':
                     case 'level3':
-                    case 'reviewing': return 'bg-blue-50 text-blue-600 border border-blue-200';
-                    default: return 'bg-slate-100 text-slate-500';
+                    case 'reviewing': return 'bg-amber-50 text-amber-700 border border-amber-200';
+                    default: return 'bg-slate-100 text-slate-600 border border-slate-200';
                 }
             };
 
@@ -3127,12 +3448,29 @@
                 return 'bg-slate-100 text-slate-400 border-slate-200';
             };
 
-            // 汇总归档锁定 (明细表格无此归档操作，仅限汇总表有此操作)
-            const archiveSummaryRow = (type, row) => {
-                triggerConfirm(`确定要将汇总项目《${row.projectName}》进行归档吗？归档后所有月份数据将被锁死锁定、不可编辑或删除。`, () => {
-                    row.status = 'archived';
-                    if (!row.logs) row.logs = [];
-                    row.logs.push({
+            // 汇总归档锁定 (按年度统一归档，仅限汇总表有此操作)
+            const archiveSummaryRow = (type) => {
+                const annualStatus = getAnnualStatus(type);
+                // 归档前校验：本年度是否存在草稿/审核中/已驳回的安全投入使用明细，存在则禁止归档
+                const year = type === 'safety' ? summaryFilters.year : dangerSummaryFilters.year;
+                const pendingStatuses = ['draft', 'level1', 'level2', 'level3', 'rejected'];
+                const hasPending = usageRecords.value.some(r => {
+                    if (type === 'safety' && r.includeDanger) return false;   // 安全汇总表仅校验安全明细
+                    if (type === 'danger' && !r.includeDanger) return false;  // 隐患汇总表仅校验隐患明细
+                    const d = new Date(r.date);
+                    if (isNaN(d.getTime())) return false;
+                    if (String(d.getFullYear()) !== String(year)) return false;
+                    return pendingStatuses.includes(r.status);
+                });
+                if (hasPending) {
+                    showToast('存在未提交或未审核的安全投入使用明细，请确认后再进行归档。', 'warning');
+                    return;
+                }
+                const tableName = type === 'safety' ? '安全投入汇总表' : '安全投入使用隐患汇总表';
+                triggerConfirm(`确定要将${year}年度${tableName}进行归档吗？归档后所有月份数据将被锁死锁定、不可编辑或删除。`, () => {
+                    annualStatus.status = 'archived';
+                    if (!annualStatus.logs) annualStatus.logs = [];
+                    annualStatus.logs.push({
                         time: new Date().toLocaleString(),
                         user: '系统管理员',
                         action: '核准归档',
@@ -4165,9 +4503,14 @@
                 openViewSummaryModal,
                 openEditSummaryModal,
                 saveSummaryChanges,
+                searchSafetySummary,
+                searchDangerSummary,
+                exportSafetySummary,
+                exportDangerSummary,
                 deleteSummaryRow,
                 submitSummaryForApproval,
                 archiveSummaryRow,
+                getAnnualStatus,
 
                 // 年度工作计划
                 annualFilters,
